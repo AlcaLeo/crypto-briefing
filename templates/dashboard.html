@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🪙 Daily Crypto Briefing</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #30363d;
+      --accent:    #f7931a;
+      --accent2:   #627eea;
+      --green:     #3fb950;
+      --red:       #f85149;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --radius:    10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    /* ── Header ── */
+    header {
+      max-width: 1100px;
+      margin: 0 auto 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .logo { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; }
+    .logo span { color: var(--accent); }
+    #generated-at { color: var(--muted); font-size: .85rem; }
+    .header-btns { display: flex; gap: 10px; align-items: center; }
+    #refresh-btn, #summary-btn {
+      border: none;
+      border-radius: var(--radius);
+      padding: 8px 18px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: .9rem;
+      transition: opacity .15s;
+    }
+    #refresh-btn { background: var(--accent); color: #000; }
+    #summary-btn { background: var(--accent2); color: #fff; }
+    #refresh-btn:disabled, #summary-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      max-width: 540px;
+      width: 100%;
+      position: relative;
+    }
+    .modal h3 { font-size: 1rem; margin-bottom: 16px; color: var(--accent); }
+    .modal-close {
+      position: absolute; top: 14px; right: 16px;
+      background: none; border: none; color: var(--muted);
+      font-size: 1.3rem; cursor: pointer; line-height: 1;
+    }
+    #summary-text {
+      width: 100%; min-height: 140px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text);
+      font-family: inherit; font-size: .9rem; line-height: 1.6;
+      padding: 12px; resize: vertical;
+    }
+    .modal-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .modal-actions button {
+      flex: 1; padding: 10px 14px; border: none;
+      border-radius: var(--radius); font-weight: 700;
+      font-size: .88rem; cursor: pointer; min-width: 100px;
+    }
+    #copy-btn  { background: var(--border); color: var(--text); }
+    #email-btn { background: var(--accent); color: #000; }
+    #text-btn  { background: var(--green);  color: #000; }
+    #copy-btn:disabled, #email-btn:disabled, #text-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Grid ── */
+    .grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto auto;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+    }
+    .card h2 {
+      font-size: .8rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* span-2 cards take full width */
+    .span-2 { grid-column: span 2; }
+
+    /* ── Loading / Error ── */
+    #loading {
+      grid-column: span 2;
+      text-align: center;
+      padding: 60px 0;
+      color: var(--muted);
+      font-size: 1.1rem;
+    }
+    .spinner {
+      display: inline-block;
+      width: 28px; height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #error-msg { color: var(--red); text-align: center; padding: 40px; grid-column: span 2; }
+
+    /* ── Market Overview ── */
+    #market-overview { font-size: .95rem; line-height: 1.7; color: var(--text); }
+
+    /* ── Top Movers ── */
+    #top-movers { font-size: .9rem; line-height: 1.7; white-space: pre-wrap; color: var(--text); }
+
+    /* ── Price Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 600;
+      padding: 6px 10px 10px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td { padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    tr:last-child td { border-bottom: none; }
+    .sym { color: var(--muted); font-size: .78rem; }
+    .up   { color: var(--green); }
+    .down { color: var(--red); }
+    .rank { color: var(--muted); }
+
+    /* ── News ── */
+    .news-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .news-item:last-child { border-bottom: none; }
+    .news-source { font-size: .72rem; font-weight: 700; color: var(--accent2); text-transform: uppercase; letter-spacing: .05em; }
+    .news-title  { font-size: .9rem; font-weight: 600; margin: 3px 0; color: var(--text); line-height: 1.4; }
+    .news-date   { font-size: .75rem; color: var(--muted); }
+
+    /* ── Spotlight ── */
+    .spotlight-wrap { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+    #spotlight-prices { display: flex; gap: 12px; flex-shrink: 0; flex-wrap: wrap; }
+    .spot-tile {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      min-width: 140px;
+      text-align: center;
+    }
+    .spot-tile .spot-name  { font-size: .75rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+    .spot-tile .spot-price { font-size: 1.1rem; font-weight: 700; margin: 6px 0 4px; }
+    .spot-tile .spot-chgs  { font-size: .8rem; display: flex; gap: 8px; justify-content: center; }
+    #spotlight-analysis { font-size: .9rem; line-height: 1.75; color: var(--text); flex: 1; min-width: 200px; }
+
+    /* ── Analyst Insight ── */
+    #analyst-insight {
+      font-size: .95rem;
+      line-height: 1.7;
+      color: var(--text);
+      border-left: 3px solid var(--accent);
+      padding-left: 14px;
+    }
+
+    /* ── News Highlights ── */
+    #news-highlights { font-size: .9rem; line-height: 1.8; color: var(--text); }
+    #news-highlights ul { padding-left: 18px; }
+    #news-highlights li { margin-bottom: 6px; }
+
+    @media (max-width: 700px) {
+      .grid { grid-template-columns: 1fr; }
+      .span-2 { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">🪙 <span>Crypto</span> Briefing</div>
+    <div id="generated-at">Loading…</div>
+  </div>
+  <div class="header-btns">
+    <button id="summary-btn" onclick="openSummary()">📋 Summary</button>
+    <button id="refresh-btn" onclick="refresh()">⟳ Refresh</button>
+  </div>
+</header>
+
+<!-- Summary Modal -->
+<div class="modal-backdrop" id="modal-backdrop" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3>📋 Briefing Summary</h3>
+    <textarea id="summary-text" readonly placeholder="Generating summary…"></textarea>
+    <div class="modal-actions">
+      <button id="copy-btn"  onclick="copySummary()" disabled>📋 Copy</button>
+      <button id="email-btn" onclick="shareEmail()"  disabled>📧 Email</button>
+      <button id="text-btn"  onclick="shareText()"   disabled>💬 Text</button>
+    </div>
+  </div>
+</div>
+
+<div class="grid" id="grid">
+  <div id="loading">
+    <div class="spinner"></div><br>
+    Fetching prices &amp; generating AI briefing…<br>
+    <small style="color:var(--muted)">This takes ~15 seconds on first load.</small>
+  </div>
+</div>
+
+<script>
+  function fmt(n, decimals = 2) {
+    return Number(n).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+  function fmtPrice(n) {
+    return n >= 1 ? fmt(n, 2) : fmt(n, 4);
+  }
+  function fmtCap(n) {
+    if (n >= 1e12) return (n / 1e12).toFixed(2) + "T";
+    if (n >= 1e9)  return (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6)  return (n / 1e6).toFixed(2) + "M";
+    return fmt(n, 0);
+  }
+  function chgClass(v) { return v >= 0 ? "up" : "down"; }
+  function chgStr(v)   { return (v >= 0 ? "+" : "") + fmt(v) + "%"; }
+
+  function renderBullets(text) {
+    // convert • bullet lines to <ul><li>
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    let html = "";
+    let inList = false;
+    for (const line of lines) {
+      if (line.startsWith("•") || line.startsWith("-")) {
+        if (!inList) { html += "<ul>"; inList = true; }
+        html += `<li>${line.replace(/^[•\-]\s*/, "")}</li>`;
+      } else {
+        if (inList) { html += "</ul>"; inList = false; }
+        html += `<p>${line}</p>`;
+      }
+    }
+    if (inList) html += "</ul>";
+    return html;
+  }
+
+  function render(data) {
+    document.getElementById("generated-at").textContent = data.generated_at;
+
+    const s = data.sections || {};
+    const coins = data.coins || [];
+    const news  = data.news  || [];
+
+    const grid = document.getElementById("grid");
+    grid.innerHTML = `
+      <!-- Row 1: Market Overview + Top Movers -->
+      <div class="card">
+        <h2>📊 Market Overview</h2>
+        <div id="market-overview">${s.market_overview || "—"}</div>
+      </div>
+
+      <div class="card">
+        <h2>🏆 Top Movers</h2>
+        <div id="top-movers">${s.top_movers || "—"}</div>
+      </div>
+
+      <!-- Row 2: Price Table (full width) -->
+      <div class="card span-2">
+        <h2>💹 Live Prices — Top 10</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Price (USD)</th>
+                <th>24h</th>
+                <th>7d</th>
+                <th>Market Cap</th>
+              </tr>
+            </thead>
+            <tbody id="coin-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Row 3: Spotlight (full width) -->
+      <div class="card span-2">
+        <h2>🔦 Spotlight: SOL / LINK / SUI</h2>
+        <div class="spotlight-wrap">
+          <div id="spotlight-prices"></div>
+          <div id="spotlight-analysis">${s.spotlight || "—"}</div>
+        </div>
+      </div>
+
+      <!-- Row 4: News Highlights + News Feed -->
+      <div class="card">
+        <h2>📰 News Highlights</h2>
+        <div id="news-highlights">${renderBullets(s.news_highlights || "")}</div>
+      </div>
+
+      <div class="card">
+        <h2>🗞 Latest Headlines</h2>
+        <div id="news-feed"></div>
+      </div>
+
+      <!-- Row 5: Analyst Insight (full width) -->
+      <div class="card span-2">
+        <h2>💡 Analyst Insight</h2>
+        <div id="analyst-insight">${s.analyst_insight || "—"}</div>
+      </div>
+    `;
+
+    // Spotlight tiles
+    const spotEl = document.getElementById("spotlight-prices");
+    spotEl.innerHTML = (data.spotlight || []).map(c => `
+      <div class="spot-tile">
+        <div class="spot-name">${c.symbol}</div>
+        <div class="spot-price">$${fmtPrice(c.price)}</div>
+        <div class="spot-chgs">
+          <span class="${chgClass(c.chg_24h)}">${chgStr(c.chg_24h)}</span>
+          <span class="sym">24h</span>
+          <span class="${chgClass(c.chg_7d)}">${chgStr(c.chg_7d)}</span>
+          <span class="sym">7d</span>
+        </div>
+      </div>
+    `).join("");
+
+    // Coin table
+    const tbody = document.getElementById("coin-tbody");
+    tbody.innerHTML = coins.map(c => `
+      <tr>
+        <td class="rank">${c.rank}</td>
+        <td>${c.name} <span class="sym">${c.symbol}</span></td>
+        <td>$${fmtPrice(c.price)}</td>
+        <td class="${chgClass(c.chg_24h)}">${chgStr(c.chg_24h)}</td>
+        <td class="${chgClass(c.chg_7d)}">${chgStr(c.chg_7d)}</td>
+        <td>$${fmtCap(c.market_cap)}</td>
+      </tr>
+    `).join("");
+
+    // News feed
+    const feed = document.getElementById("news-feed");
+    feed.innerHTML = news.map(n => `
+      <div class="news-item">
+        <div class="news-source">${n.source}</div>
+        <div class="news-title">${n.title}</div>
+        <div class="news-date">${n.published}</div>
+      </div>
+    `).join("");
+  }
+
+  async function load(endpoint = "/api/briefing") {
+    const btn = document.getElementById("refresh-btn");
+    btn.disabled = true;
+    btn.textContent = "Loading…";
+
+    try {
+      const res = await fetch(endpoint, { method: endpoint === "/api/refresh" ? "POST" : "GET" });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      render(data);
+    } catch (err) {
+      document.getElementById("grid").innerHTML =
+        `<div id="error-msg">❌ ${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "⟳ Refresh";
+    }
+  }
+
+  function refresh() { load("/api/refresh"); }
+
+  // ── Summary Modal ────────────────────────────────────────────────
+  let _summaryText = "";
+
+  async function openSummary() {
+    const backdrop = document.getElementById("modal-backdrop");
+    const textarea = document.getElementById("summary-text");
+    const copyBtn  = document.getElementById("copy-btn");
+    const emailBtn = document.getElementById("email-btn");
+    const textBtn  = document.getElementById("text-btn");
+    const summBtn  = document.getElementById("summary-btn");
+
+    backdrop.classList.add("open");
+    textarea.value = "Generating summary…";
+    copyBtn.disabled = emailBtn.disabled = textBtn.disabled = true;
+    summBtn.disabled = true;
+
+    try {
+      const res  = await fetch("/api/summary");
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      _summaryText = data.summary;
+      textarea.value = _summaryText;
+      copyBtn.disabled = emailBtn.disabled = textBtn.disabled = false;
+    } catch (err) {
+      textarea.value = "❌ " + err.message;
+    } finally {
+      summBtn.disabled = false;
+    }
+  }
+
+  function closeModal(e) {
+    if (e && e.target !== document.getElementById("modal-backdrop")) return;
+    document.getElementById("modal-backdrop").classList.remove("open");
+  }
+
+  function copySummary() {
+    navigator.clipboard.writeText(_summaryText).then(() => {
+      const btn = document.getElementById("copy-btn");
+      btn.textContent = "✓ Copied!";
+      setTimeout(() => btn.textContent = "📋 Copy", 2000);
+    });
+  }
+
+  function shareEmail() {
+    const subject = encodeURIComponent("Daily Crypto Briefing — " + document.getElementById("generated-at").textContent);
+    const body    = encodeURIComponent(_summaryText);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  }
+
+  function shareText() {
+    const body = encodeURIComponent(_summaryText);
+    window.location.href = `sms:&body=${body}`;
+  }
+
+  load();
+</script>
+</body>
+</html>
