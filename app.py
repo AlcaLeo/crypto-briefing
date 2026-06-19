@@ -22,7 +22,7 @@ if _env_file.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
 
-from briefing import fetch_top_cryptos, fetch_crypto_news, fetch_spotlight_coins, generate_briefing, generate_summary, format_crypto_table
+from briefing import fetch_top_cryptos, fetch_crypto_news, fetch_spotlight_coins, fetch_portfolio_stock, fetch_portfolio_news, generate_briefing, generate_summary, format_crypto_table
 
 app = Flask(__name__)
 
@@ -32,10 +32,12 @@ _lock = threading.Lock()
 
 
 def _run_briefing() -> dict:
-    coins     = fetch_top_cryptos()
-    news      = fetch_crypto_news()
-    spotlight = fetch_spotlight_coins()
-    briefing_text = generate_briefing(coins, news, spotlight)
+    coins           = fetch_top_cryptos()
+    news            = fetch_crypto_news()
+    spotlight       = fetch_spotlight_coins()
+    portfolio_stock = fetch_portfolio_stock()
+    portfolio_news  = fetch_portfolio_news()
+    briefing_text   = generate_briefing(coins, news, spotlight)
 
     sections = parse_sections(briefing_text)
 
@@ -51,12 +53,14 @@ def _run_briefing() -> dict:
         }
 
     return {
-        "generated_at": datetime.now().strftime("%A, %B %d, %Y  •  %H:%M"),
-        "coins": [to_row(i, c) for i, c in enumerate(coins, 1)],
-        "spotlight": [to_row(i, c) for i, c in enumerate(spotlight, 1)],
-        "news": news,
-        "sections": sections,
-        "raw": briefing_text,
+        "generated_at":   datetime.now().strftime("%A, %B %d, %Y  •  %H:%M"),
+        "coins":          [to_row(i, c) for i, c in enumerate(coins, 1)],
+        "spotlight":      [to_row(i, c) for i, c in enumerate(spotlight, 1)],
+        "news":           news,
+        "portfolio_stock": portfolio_stock,
+        "portfolio_news":  portfolio_news,
+        "sections":       sections,
+        "raw":            briefing_text,
     }
 
 

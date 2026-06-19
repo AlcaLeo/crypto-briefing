@@ -206,6 +206,31 @@
       padding-left: 14px;
     }
 
+    /* ── Portfolio ── */
+    .portfolio-wrap { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+    .portfolio-price-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      min-width: 220px;
+      flex-shrink: 0;
+    }
+    .port-company { font-size: .75rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+    .port-price   { font-size: 2rem; font-weight: 700; margin: 6px 0 4px; }
+    .port-change  { font-size: 1rem; font-weight: 600; margin-bottom: 14px; }
+    .port-stats   { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: .8rem; }
+    .port-stat-label { color: var(--muted); }
+    .port-stat-val   { font-weight: 600; text-align: right; }
+    .portfolio-news { flex: 1; min-width: 240px; }
+    .port-news-item { padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .port-news-item:last-child { border-bottom: none; }
+    .port-news-source { font-size: .72rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; }
+    .port-news-title  { font-size: .88rem; font-weight: 600; margin: 3px 0 2px; line-height: 1.4; }
+    .port-news-title a { color: var(--text); text-decoration: none; }
+    .port-news-title a:hover { color: var(--accent); }
+    .port-news-date   { font-size: .75rem; color: var(--muted); }
+
     /* ── News Highlights ── */
     #news-highlights { font-size: .9rem; line-height: 1.8; color: var(--text); }
     #news-highlights ul { padding-left: 18px; }
@@ -335,7 +360,16 @@
         </div>
       </div>
 
-      <!-- Row 4: News Highlights + News Feed -->
+      <!-- Row 4: Leo's Portfolio Update (full width) -->
+      <div class="card span-2">
+        <h2>📈 Leo's Portfolio Update — NEE &amp; SPCX</h2>
+        <div class="portfolio-wrap">
+          <div id="portfolio-prices" style="display:flex;flex-direction:column;gap:12px;"></div>
+          <div class="portfolio-news" id="portfolio-news"></div>
+        </div>
+      </div>
+
+      <!-- Row 5: News Highlights + News Feed -->
       <div class="card">
         <h2>📰 News Highlights</h2>
         <div id="news-highlights">${renderBullets(s.news_highlights || "")}</div>
@@ -352,6 +386,49 @@
         <div id="analyst-insight">${s.analyst_insight || "—"}</div>
       </div>
     `;
+
+    // Portfolio price cards (one per stock)
+    const stocks = Array.isArray(data.portfolio_stock) ? data.portfolio_stock : [];
+    const pricesEl = document.getElementById("portfolio-prices");
+    pricesEl.innerHTML = stocks.map(ps => {
+      if (!ps.price) {
+        return `<div class="portfolio-price-card"><div class="port-company">${ps.symbol}</div><div style="color:var(--muted);font-size:.85rem;margin-top:8px">No data available.</div></div>`;
+      }
+      const chgCls  = ps.change_pct >= 0 ? "up" : "down";
+      const chgSign = ps.change_pct >= 0 ? "+" : "";
+      return `
+        <div class="portfolio-price-card">
+          <div class="port-company">${ps.name} (${ps.symbol})</div>
+          <div class="port-price">$${fmt(ps.price, 2)}</div>
+          <div class="port-change ${chgCls}">${chgSign}$${fmt(Math.abs(ps.change), 2)} (${chgSign}${fmt(ps.change_pct, 2)}%) today</div>
+          <div class="port-stats">
+            <span class="port-stat-label">Prev Close</span>  <span class="port-stat-val">$${fmt(ps.prev_close, 2)}</span>
+            <span class="port-stat-label">Day High</span>    <span class="port-stat-val">$${fmt(ps.day_high, 2)}</span>
+            <span class="port-stat-label">Day Low</span>     <span class="port-stat-val">$${fmt(ps.day_low, 2)}</span>
+            <span class="port-stat-label">Volume</span>      <span class="port-stat-val">${fmtCap(ps.volume)}</span>
+            <span class="port-stat-label">52w High</span>    <span class="port-stat-val">$${fmt(ps.week52_high, 2)}</span>
+            <span class="port-stat-label">52w Low</span>     <span class="port-stat-val">$${fmt(ps.week52_low, 2)}</span>
+            <span class="port-stat-label">Mkt Cap</span>     <span class="port-stat-val">$${fmtCap(ps.market_cap)}</span>
+          </div>
+        </div>`;
+    }).join("");
+
+    // Portfolio news
+    const pn = data.portfolio_news || [];
+    const newsEl = document.getElementById("portfolio-news");
+    if (pn.length === 0) {
+      newsEl.innerHTML = `<div style="color:var(--muted);font-size:.88rem">No news available.</div>`;
+    } else {
+      newsEl.innerHTML = pn.map(n => `
+        <div class="port-news-item">
+          <div class="port-news-source">${n.symbol ? n.symbol + " • " : ""}${n.source}</div>
+          <div class="port-news-title">
+            ${n.url ? `<a href="${n.url}" target="_blank">${n.title}</a>` : n.title}
+          </div>
+          <div class="port-news-date">${n.published}</div>
+        </div>
+      `).join("");
+    }
 
     // Spotlight tiles
     const spotEl = document.getElementById("spotlight-prices");

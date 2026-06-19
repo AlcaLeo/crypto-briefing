@@ -19,7 +19,7 @@ from pathlib import Path
 import requests
 import feedparser
 import anthropic
-from datetime import datetime
+from datetime import datetime, timedelta
 from textwrap import dedent
 
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
@@ -55,6 +55,73 @@ def fetch_spotlight_coins() -> list[dict]:
     except requests.RequestException as e:
         print(f"  ⚠  Spotlight fetch error: {e}", file=sys.stderr)
         return []
+
+
+PORTFOLIO_SYMBOLS = ["NEE", "SPCX"]
+
+def _fetch_single_stock(symbol: str) -> dict:
+    try:
+        import yfinance as yf
+        info = yf.Ticker(symbol).info
+        price      = info.get("currentPrice") or info.get("regularMarketPrice") or 0
+        prev_close = info.get("previousClose") or 0
+        change     = round(price - prev_close, 2)
+        change_pct = round(info.get("regularMarketChangePercent", 0), 2)
+        return {
+            "symbol":      symbol,
+            "name":        info.get("longName", symbol),
+            "price":       price,
+            "change":      change,
+            "change_pct":  change_pct,
+            "prev_close":  prev_close,
+            "day_high":    info.get("dayHigh") or 0,
+            "day_low":     info.get("dayLow") or 0,
+            "volume":      info.get("volume") or 0,
+            "market_cap":  info.get("marketCap") or 0,
+            "week52_high": info.get("fiftyTwoWeekHigh") or 0,
+            "week52_low":  info.get("fiftyTwoWeekLow") or 0,
+        }
+    except Exception as e:
+        print(f"  ⚠  {symbol} stock fetch error: {e}", file=sys.stderr)
+        return {"symbol": symbol, "name": symbol, "price": 0}
+
+
+def fetch_portfolio_stock() -> list[dict]:
+    """Fetch live price and key stats for every portfolio stock."""
+    return [_fetch_single_stock(sym) for sym in PORTFOLIO_SYMBOLS]
+
+
+def _fetch_single_news(symbol: str, limit: int) -> list[dict]:
+    try:
+        import yfinance as yf
+        news = yf.Ticker(symbol).news or []
+        items = []
+        for item in news[:limit]:
+            c = item.get("content", {})
+            title = c.get("title", "")
+            if not title:
+                continue
+            items.append({
+                "symbol":    symbol,
+                "title":     title,
+                "summary":   c.get("summary", ""),
+                "published": c.get("pubDate", "")[:10],
+                "source":    c.get("provider", {}).get("displayName", ""),
+                "url":       c.get("canonicalUrl", {}).get("url", ""),
+            })
+        return items
+    except Exception as e:
+        print(f"  ⚠  {symbol} news fetch error: {e}", file=sys.stderr)
+        return []
+
+
+def fetch_portfolio_news(limit_per_symbol: int = 3) -> list[dict]:
+    """Fetch latest news for every portfolio stock (sorted newest first)."""
+    items = []
+    for sym in PORTFOLIO_SYMBOLS:
+        items.extend(_fetch_single_news(sym, limit_per_symbol))
+    items.sort(key=lambda x: x["published"], reverse=True)
+    return items
 
 
 def fetch_top_cryptos(limit: int = 10) -> list[dict]:
