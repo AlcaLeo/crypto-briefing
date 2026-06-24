@@ -22,7 +22,12 @@ if _env_file.exists():
             key, _, val = line.partition("=")
             os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
 
-from briefing import fetch_top_cryptos, fetch_crypto_news, fetch_spotlight_coins, fetch_portfolio_stock, fetch_portfolio_news, generate_briefing, generate_summary, format_crypto_table
+from briefing import (
+    fetch_top_cryptos, fetch_crypto_news, fetch_spotlight_coins,
+    fetch_portfolio_stock, fetch_portfolio_news,
+    fetch_tech_news, fetch_btc_sentiment, fetch_btc_hodl_waves,
+    generate_briefing, generate_summary, format_crypto_table,
+)
 
 app = Flask(__name__)
 
@@ -37,7 +42,10 @@ def _run_briefing() -> dict:
     spotlight       = fetch_spotlight_coins()
     portfolio_stock = fetch_portfolio_stock()
     portfolio_news  = fetch_portfolio_news()
-    briefing_text   = generate_briefing(coins, news, spotlight)
+    tech_news       = fetch_tech_news()
+    btc_sentiment   = fetch_btc_sentiment()
+    hodl_waves      = fetch_btc_hodl_waves()
+    briefing_text   = generate_briefing(coins, news, spotlight, tech_news, btc_sentiment)
 
     sections = parse_sections(briefing_text)
 
@@ -57,6 +65,9 @@ def _run_briefing() -> dict:
         "coins":          [to_row(i, c) for i, c in enumerate(coins, 1)],
         "spotlight":      [to_row(i, c) for i, c in enumerate(spotlight, 1)],
         "news":           news,
+        "tech_news":      tech_news,
+        "btc_sentiment":  btc_sentiment,
+        "hodl_waves":     hodl_waves,
         "portfolio_stock": portfolio_stock,
         "portfolio_news":  portfolio_news,
         "sections":       sections,
@@ -70,7 +81,9 @@ def parse_sections(text: str) -> dict:
         "market_overview": r"MARKET OVERVIEW",
         "top_movers":      r"TOP MOVERS",
         "news_highlights": r"NEWS HIGHLIGHTS",
-        "spotlight":       r"SPOTLIGHT",
+        "spotlight":       r"SPOTLIGHT:",
+        "tech_pulse":      r"TECH PULSE",
+        "btc_sentiment":   r"BTC HODL vs SELL",
         "analyst_insight": r"ANALYST INSIGHT",
     }
     # Splitting on ═══ puts headers and body in alternating parts:

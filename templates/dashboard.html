@@ -206,6 +206,76 @@
       padding-left: 14px;
     }
 
+    /* ── BTC Sentiment ── */
+    .sentiment-wrap { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+    .fg-gauge {
+      flex-shrink: 0;
+      text-align: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 24px;
+      min-width: 180px;
+    }
+    .fg-gauge .fg-label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+    .fg-gauge .fg-value { font-size: 2.4rem; font-weight: 700; margin: 6px 0 2px; }
+    .fg-gauge .fg-class { font-size: .9rem; font-weight: 600; margin-bottom: 10px; }
+    .fg-gauge .fg-week  { font-size: .78rem; color: var(--muted); }
+    .fg-extreme-fear { color: #f85149; }
+    .fg-fear         { color: #ff9b62; }
+    .fg-neutral      { color: #d4af37; }
+    .fg-greed        { color: #87d068; }
+    .fg-extreme-greed { color: var(--green); }
+    .sentiment-analysis { flex: 1; min-width: 240px; font-size: .92rem; line-height: 1.7; }
+
+    /* ── HODL Waves ── */
+    .hodl-section { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+    .hodl-header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .hodl-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
+    .hodl-asof  { font-size: .72rem; color: var(--muted); }
+    .hodl-rows { display: flex; flex-direction: column; gap: 6px; }
+    .hodl-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 60px;
+      align-items: center;
+      gap: 12px;
+      font-size: .82rem;
+    }
+    .hodl-label { color: var(--text); }
+    .hodl-bar-wrap { background: var(--bg); border-radius: 4px; height: 14px; overflow: hidden; border: 1px solid var(--border); }
+    .hodl-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .4s;
+    }
+    .hodl-bar-hodl   { background: linear-gradient(90deg, #2ea043, #3fb950); }
+    .hodl-bar-mid    { background: linear-gradient(90deg, #c9a227, #f0c040); }
+    .hodl-bar-active { background: linear-gradient(90deg, #f0883e, #f85149); }
+    .hodl-pct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; }
+    .hodl-footnote { font-size: .72rem; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+
+    .hodl-legend {
+      display: flex; gap: 18px; flex-wrap: wrap;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: .78rem;
+    }
+    .hodl-legend-item { display: flex; align-items: center; gap: 7px; color: var(--text); }
+    .hodl-legend-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+    .hodl-legend-label  { color: var(--text); font-weight: 600; }
+    .hodl-legend-desc   { color: var(--muted); font-size: .72rem; }
+
+    /* ── Tech Pulse ── */
+    #tech-pulse { font-size: .9rem; line-height: 1.8; color: var(--text); }
+    #tech-pulse ul { padding-left: 18px; }
+    #tech-pulse li { margin-bottom: 6px; }
+
     /* ── Portfolio ── */
     .portfolio-wrap { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
     .portfolio-price-card {
@@ -360,6 +430,22 @@
         </div>
       </div>
 
+      <!-- Row 3.5: BTC HODL vs Sell (full width) -->
+      <div class="card span-2">
+        <h2>💎 BTC HODL vs SELL Sentiment</h2>
+        <div class="sentiment-wrap">
+          <div class="fg-gauge" id="fg-gauge"></div>
+          <div class="sentiment-analysis" id="sentiment-analysis">${s.btc_sentiment || "—"}</div>
+        </div>
+        <div class="hodl-section" id="hodl-section"></div>
+      </div>
+
+      <!-- Row 3.6: Tech Pulse (full width) -->
+      <div class="card span-2">
+        <h2>🧠 Tech Pulse — AI / Blockchain / Data Centers</h2>
+        <div id="tech-pulse">${renderBullets(s.tech_pulse || "")}</div>
+      </div>
+
       <!-- Row 4: Leo's Portfolio Update (full width) -->
       <div class="card span-2">
         <h2>📈 Leo's Portfolio Update — NEE &amp; SPCX</h2>
@@ -386,6 +472,91 @@
         <div id="analyst-insight">${s.analyst_insight || "—"}</div>
       </div>
     `;
+
+    // Fear & Greed gauge
+    const fg = (data.btc_sentiment || {}).fear_greed || {};
+    const gaugeEl = document.getElementById("fg-gauge");
+    if (fg.value !== undefined) {
+      const cls = "fg-" + (fg.classification || "").toLowerCase().replace(/\s+/g, "-");
+      gaugeEl.innerHTML = `
+        <div class="fg-label">Fear &amp; Greed Index</div>
+        <div class="fg-value ${cls}">${fg.value}</div>
+        <div class="fg-class ${cls}">${fg.classification}</div>
+        <div class="fg-week">7d ago: <strong>${fg.week_ago_value}</strong> (${fg.week_ago_class})</div>
+      `;
+    } else {
+      gaugeEl.innerHTML = `<div style="color:var(--muted);font-size:.85rem">No data.</div>`;
+    }
+
+    // HODL Waves (BTC supply by holding age, since 2009)
+    const hw = data.hodl_waves || {};
+    const hodlEl = document.getElementById("hodl-section");
+    if (hw.buckets && hw.buckets.length) {
+      const maxPct = Math.max(...hw.buckets.map(b => b.pct));
+
+      // Bucket a label into a holder category by parsing the time unit
+      function barClass(label) {
+        if (label.includes("year"))                              return "hodl-bar-hodl";   // 1+ years
+        if (label.includes("6–12 months") || label.includes("3–6 months"))
+                                                                 return "hodl-bar-mid";    // 3–12 months
+        return "hodl-bar-active";                                                          // <3 months
+      }
+
+      // Compute category totals to show in the legend
+      const totals = {hodl: 0, mid: 0, active: 0};
+      hw.buckets.forEach(b => {
+        const k = barClass(b.label).replace("hodl-bar-", "");
+        totals[k] += b.pct;
+      });
+
+      hodlEl.innerHTML = `
+        <div class="hodl-header">
+          <span class="hodl-title">⏳ HODL Waves — BTC Supply by Age</span>
+          <span class="hodl-asof">As of ${hw.as_of}</span>
+        </div>
+
+        <div class="hodl-legend">
+          <div class="hodl-legend-item">
+            <div class="hodl-legend-swatch hodl-bar-hodl"></div>
+            <div>
+              <div class="hodl-legend-label">Long-term HODLers — ${totals.hodl.toFixed(1)}%</div>
+              <div class="hodl-legend-desc">Coins untouched for 1+ years (diamond hands)</div>
+            </div>
+          </div>
+          <div class="hodl-legend-item">
+            <div class="hodl-legend-swatch hodl-bar-mid"></div>
+            <div>
+              <div class="hodl-legend-label">Mid-term holders — ${totals.mid.toFixed(1)}%</div>
+              <div class="hodl-legend-desc">Coins last moved 3–12 months ago</div>
+            </div>
+          </div>
+          <div class="hodl-legend-item">
+            <div class="hodl-legend-swatch hodl-bar-active"></div>
+            <div>
+              <div class="hodl-legend-label">Active / recent — ${totals.active.toFixed(1)}%</div>
+              <div class="hodl-legend-desc">Coins moved in the last 3 months (traders)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hodl-rows">
+          ${hw.buckets.map(b => `
+            <div class="hodl-row">
+              <span class="hodl-label">${b.label}</span>
+              <div class="hodl-bar-wrap">
+                <div class="hodl-bar ${barClass(b.label)}" style="width:${(b.pct / maxPct * 100).toFixed(1)}%"></div>
+              </div>
+              <span class="hodl-pct">${b.pct.toFixed(2)}%</span>
+            </div>
+          `).join("")}
+        </div>
+        <div class="hodl-footnote">
+          Realized-cap HODL waves — percentage of BTC supply last moved within each age band.
+          Top bands ("10+ years", "7–10 years") include the earliest coins mined since 2009. Source: bitcoin-data.com
+        </div>`;
+    } else {
+      hodlEl.innerHTML = `<div style="color:var(--muted);font-size:.85rem">HODL Waves data unavailable.</div>`;
+    }
 
     // Portfolio price cards (one per stock)
     const stocks = Array.isArray(data.portfolio_stock) ? data.portfolio_stock : [];
